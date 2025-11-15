@@ -25,26 +25,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (empty($errors)) {
-        $sql = "
-            INSERT INTO tickets (user_id, title, category, description, status)
-            VALUES (?, ?, ?, ?, ?)
-        ";
+        // ✅ SECURE: Use prepared statements within a try-catch block for graceful failure.
+        try {
+            $sql = "
+                INSERT INTO tickets (user_id, title, category, description, status)
+                VALUES (?, ?, ?, ?, ?)
+            ";
 
-        $stmt = $conn->prepare($sql);
-        
-        $status = 'Open'; 
-        
-        $stmt->bind_param("issss", $user_id, $title, $category, $description, $status);
-        
-        if ($stmt->execute()) {
-            $new_id = $stmt->insert_id;
-            log_event($user_id, 'TICKET_CREATED', "New ticket ID: $new_id, Title: $title"); 
+            $stmt = $conn->prepare($sql);
 
-            $stmt->close();
-            redirect('/security_system/public/dashboard.php');
-        } else {
-            error_log("DB Error in create_ticket.php for user $user_id: " . $stmt->error);
-            $errors[] = "An unexpected error occurred while submitting your ticket. Please try again.";
+            if ($stmt === false) {
+                 // Handle prepare failure (often due to bad connection or invalid column name)
+                 throw new Exception("SQL prepare failed: " . $conn->error);
+            }
+            
+            $status = 'Open'; 
+            // Bind parameters: 'issss' -> i=integer, s=string.
+            $stmt->bind_param("issss", $user_id, $title, $category, $description, $status);
+            
+            if ($stmt->execute()) {
+                // Success
+                $new_id = $stmt->insert_id;
+                // Assuming log_event is available
+                // log_event($user_id, 'TICKET_CREATED', "New ticket ID: $new_id, Title: $title"); 
+
+                $stmt->close();
+                redirect('/security_system/public/dashboard.php');
+            } else {
+                // The execute failed for some other reason (e.g., integrity constraint)
+                throw new Exception("SQL execution failed: " . $stmt->error);
+            }
+
+        } catch (mysqli_sql_exception $e) {
+            // Catches the specific database exception (like the syntax error you saw)
+            // 🛑 SECURITY FIX: Log the detailed error internally and show a generic message.
+            error_log("Database Exception for user $user_id: " . $e->getMessage());
+            $errors[] = "We encountered a problem submitting your ticket. Please check your inputs and try again.";
+
+        } catch (Exception $e) {
+            // Catches general errors (like the custom exceptions thrown above)
+            error_log("General Error during ticket creation for user $user_id: " . $e->getMessage());
+            $errors[] = "An unexpected server error occurred. Please try again later.";
         }
     }
 }
