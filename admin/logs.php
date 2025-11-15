@@ -5,27 +5,33 @@ require_once __DIR__ . '/../includes/layout.php';
 
 require_admin();
 
-// ⚠ For now, get ALL logs, no paging, no filtering
 $sql = "SELECT id, user_id, action, details, created_at FROM audit_logs ORDER BY created_at DESC";
 $result = $conn->query($sql);
 
 render_header("Audit Logs - Security System");
 ?>
 
+<div class="row mb-3">
+  <div class="col-md-8">
+    <h2 class="app-section-title mb-1">Audit Logs</h2>
+    <p class="text-muted mb-0">
+      Baseline logging of authentication and ticket activity. You will refine and secure this logging later.
+    </p>
+  </div>
+</div>
+
 <div class="row">
   <div class="col-12">
-    <h2 class="mb-3">Audit Logs (Insecure Baseline)</h2>
-
     <?php if ($result && $result->num_rows > 0): ?>
-      <div class="table-responsive bg-white rounded shadow-sm">
-        <table class="table table-sm table-striped mb-0">
+      <div class="table-responsive app-card p-3">
+        <table class="table table-sm table-striped mb-0 align-middle">
           <thead>
             <tr>
-              <th>ID</th>
-              <th>User ID</th>
-              <th>Action</th>
+              <th style="width: 60px;">ID</th>
+              <th style="width: 80px;">User ID</th>
+              <th style="width: 170px;">Action</th>
               <th>Details</th>
-              <th>Time</th>
+              <th style="width: 200px;">Timestamp</th>
             </tr>
           </thead>
           <tbody>
@@ -33,17 +39,18 @@ render_header("Audit Logs - Security System");
               <tr>
                 <td><?= $row['id'] ?></td>
                 <td><?= htmlspecialchars($row['user_id']) ?></td>
-                <td><?= htmlspecialchars($row['action']) ?></td>
-                <td><?= htmlspecialchars($row['details']) ?></td>
-                <td><?= htmlspecialchars($row['created_at']) ?></td>
+                <td><span class="fw-semibold"><?= htmlspecialchars($row['action']) ?></span></td>
+                <td class="small"><?= htmlspecialchars($row['details']) ?></td>
+                <td><span class="text-muted small"><?= htmlspecialchars($row['created_at']) ?></span></td>
               </tr>
             <?php endwhile; ?>
           </tbody>
         </table>
       </div>
     <?php else: ?>
-      <div class="alert alert-info">
-        No logs yet.
+      <div class="app-card p-4 text-center">
+        <p class="mb-2 fw-semibold">No logs yet.</p>
+        <p class="text-muted mb-0">Once users start logging in and creating tickets, events will appear here.</p>
       </div>
     <?php endif; ?>
   </div>
