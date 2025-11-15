@@ -11,10 +11,10 @@ $category = '';
 $description = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $user_id    = $_SESSION['user_id'];
-    $title      = $_POST['title'] ?? '';
-    $category   = $_POST['category'] ?? '';
-    $description= $_POST['description'] ?? '';
+    $user_id     = $_SESSION['user_id'];
+    $title       = $_POST['title'] ?? '';
+    $category    = $_POST['category'] ?? '';
+    $description = $_POST['description'] ?? '';
 
     // Minimal validation (intentionally weak)
     if ($title === '') {
@@ -25,83 +25,81 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (empty($errors)) {
+        // ⚠️ Intentionally INSECURE SQL (no prepared statements, no escaping)
         $sql = "
             INSERT INTO tickets (user_id, title, category, description, status)
             VALUES ($user_id, '$title', '$category', '$description', 'Open')
         ";
 
         if ($conn->query($sql) === TRUE) {
-            $new_ticket_id = $conn->insert_id;
-
-            // log ticket creation (again, details are quite verbose on purpose)
-            log_event(
-                $user_id,
-                'TICKET_CREATED',
-                "Ticket #$new_ticket_id created with title: $title"
-            );
-
             redirect('/security_system/public/dashboard.php');
         } else {
             $errors[] = "Error creating ticket: " . $conn->error;
         }
     }
-
 }
 
 render_header("Create Ticket - Security System");
 ?>
 
 <div class="row justify-content-center">
-  <div class="col-md-8">
-    <div class="card shadow-sm">
-      <div class="card-body">
-        <h2 class="mb-4 text-center">Create Support Ticket</h2>
+  <div class="col-lg-7">
+    <div class="app-card p-4">
+      <h2 class="app-section-title mb-3">Create Support Ticket</h2>
+      <p class="text-muted mb-4">
+        Describe your issue as clearly as possible so the support team can assist you.
+      </p>
 
-        <?php if (!empty($errors)): ?>
-          <div class="alert alert-danger">
-            <ul class="mb-0">
-              <?php foreach ($errors as $e): ?>
-                <li><?= htmlspecialchars($e) ?></li>
-              <?php endforeach; ?>
-            </ul>
-          </div>
-        <?php endif; ?>
+      <?php if (!empty($errors)): ?>
+        <div class="alert alert-danger">
+          <ul class="mb-0">
+            <?php foreach ($errors as $e): ?>
+              <li><?= htmlspecialchars($e) ?></li>
+            <?php endforeach; ?>
+          </ul>
+        </div>
+      <?php endif; ?>
 
-        <form method="post">
-          <div class="mb-3">
-            <label class="form-label">Title</label>
-            <input
-              type="text"
-              name="title"
-              class="form-control"
-              value="<?= htmlspecialchars($title) ?>"
-            >
-          </div>
+      <form method="post">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Title</label>
+          <input
+            type="text"
+            name="title"
+            class="form-control"
+            value="<?= htmlspecialchars($title) ?>"
+            placeholder="e.g. Laptop not booting"
+          >
+        </div>
 
-          <div class="mb-3">
-            <label class="form-label">Category (optional)</label>
-            <input
-              type="text"
-              name="category"
-              class="form-control"
-              value="<?= htmlspecialchars($category) ?>"
-            >
-          </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Category <span class="text-muted">(optional)</span></label>
+          <input
+            type="text"
+            name="category"
+            class="form-control"
+            value="<?= htmlspecialchars($category) ?>"
+            placeholder="e.g. Laptop, Email, Network"
+          >
+        </div>
 
-          <div class="mb-3">
-            <label class="form-label">Description</label>
-            <textarea
-              name="description"
-              rows="4"
-              class="form-control"
-            ><?= htmlspecialchars($description) ?></textarea>
-          </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Description</label>
+          <textarea
+            name="description"
+            rows="4"
+            class="form-control"
+            placeholder="Give more details about the problem..."
+          ><?= htmlspecialchars($description) ?></textarea>
+        </div>
 
-          <button type="submit" class="btn btn-primary w-100">
+        <div class="d-flex justify-content-between">
+          <a href="dashboard.php" class="btn btn-outline-secondary btn-pill">Back to Dashboard</a>
+          <button type="submit" class="btn btn-primary btn-pill">
             Submit Ticket
           </button>
-        </form>
-      </div>
+        </div>
+      </form>
     </div>
   </div>
 </div>
