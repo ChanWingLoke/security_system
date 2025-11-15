@@ -25,16 +25,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (empty($errors)) {
-        // ⚠️ Intentionally INSECURE SQL (no prepared statements, no escaping)
         $sql = "
             INSERT INTO tickets (user_id, title, category, description, status)
-            VALUES ($user_id, '$title', '$category', '$description', 'Open')
+            VALUES (?, ?, ?, ?, ?)
         ";
 
-        if ($conn->query($sql) === TRUE) {
+        $stmt = $conn->prepare($sql);
+        
+        $status = 'Open'; 
+        
+        $stmt->bind_param("issss", $user_id, $title, $category, $description, $status);
+        
+        if ($stmt->execute()) {
+            $new_id = $stmt->insert_id;
+            log_event($user_id, 'TICKET_CREATED', "New ticket ID: $new_id, Title: $title"); 
+
+            $stmt->close();
             redirect('/security_system/public/dashboard.php');
         } else {
-            $errors[] = "Error creating ticket: " . $conn->error;
+            error_log("DB Error in create_ticket.php for user $user_id: " . $stmt->error);
+            $errors[] = "An unexpected error occurred while submitting your ticket. Please try again.";
         }
     }
 }
