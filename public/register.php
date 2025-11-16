@@ -38,6 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password = $_POST['password'] ?? '';
     $confirm  = $_POST['confirm_password'] ?? '';
 
+    // Basic validation (you can strengthen later)
     if ($name === '') {
         $errors[] = "Name is required.";
     }
@@ -58,6 +59,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = "Password and confirmation do not match.";
     }
 
+    // Password policy checks
+    if ($password !== '') {
+        // Minimum length (you can pick 8 or 10)
+        if (strlen($password) < 10) {
+            $errors[] = "Password must be at least 10 characters long.";
+        }
+
+        // At least one uppercase
+        if (!preg_match('/[A-Z]/', $password)) {
+            $errors[] = "Password must contain at least one uppercase letter (A-Z).";
+        }
+
+        // At least one lowercase
+        if (!preg_match('/[a-z]/', $password)) {
+            $errors[] = "Password must contain at least one lowercase letter (a-z).";
+        }
+
+        // At least one digit
+        if (!preg_match('/[0-9]/', $password)) {
+            $errors[] = "Password must contain at least one digit (0-9).";
+        }
+
+        // At least one special character
+        if (!preg_match('/[\W_]/', $password)) {
+            $errors[] = "Password must contain at least one special character (e.g. !@#\$%^&*).";
+        }
+    }
+
     // Check duplicate email
     if (empty($errors)) {
         $stmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
@@ -71,14 +100,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (empty($errors)) {
-        $role = 'user'; // default
+        $role = 'user'; // default role
 
-        // 👉 Intentionally storing plaintext password for baseline
+        // ✅ HASH THE PASSWORD HERE
+        $password_hash = password_hash($password, PASSWORD_DEFAULT);
+
         $stmt = $conn->prepare("
             INSERT INTO users (name, email, password, role)
             VALUES (?, ?, ?, ?)
         ");
-        $stmt->bind_param("ssss", $name, $email, $password, $role);
+        $stmt->bind_param("ssss", $name, $email, $password_hash, $role);
         $stmt->execute();
 
         if ($stmt->error) {
@@ -86,8 +117,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $new_id = $stmt->insert_id;
 
-            log_event($new_id, 'USER_REGISTERED', "Registered with email: $email");
+            // Log registration if logger exists
+            if (function_exists('log_event')) {
+                log_event($new_id, 'USER_REGISTERED', "Registered with email: $email");
+            }
 
+            // Auto-login
             $_SESSION['user_id']   = $new_id;
             $_SESSION['user_name'] = $name;
             $_SESSION['user_role'] = $role;
@@ -95,6 +130,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->close();
             redirect('/security_system/public/dashboard.php');
         }
+
         $stmt->close();
     }
 }
@@ -202,7 +238,7 @@ render_header("Register - Security System");
           Already have an account?
           <a href="login.php">Login here</a>.
         </p>
-      </form>
+      </div>
     </div>
   </div>
 </div>
