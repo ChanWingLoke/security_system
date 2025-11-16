@@ -14,9 +14,6 @@ render_header("Audit Logs - Security System");
 <div class="row mb-3">
   <div class="col-md-8">
     <h2 class="app-section-title mb-1">Audit Logs</h2>
-    <p class="text-muted mb-0">
-      Baseline logging of authentication and ticket activity. You will refine and secure this logging later.
-    </p>
   </div>
 </div>
 

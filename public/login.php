@@ -187,7 +187,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     record_failed_attempt($conn, $email, $ip);
                     $errors[] = "Invalid email or password.";
                     require_once __DIR__ . '/../includes/auth.php';
-                    log_event($id, 'LOGIN_FAILED', "Wrong password for $email from IP $ip");
+                    log_event($id, 'LOGIN_FAILED', "Failed login for $email from IP $ip");
                 }
             } else {
                 $stmt->close();
@@ -196,7 +196,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 record_failed_attempt($conn, $email, $ip);
                 $errors[] = "Invalid email or password.";
                 require_once __DIR__ . '/../includes/auth.php';
-                log_event($id, 'LOGIN_FAILED', "Failed login attempt for email: $email");
+                log_event($id, 'LOGIN_FAILED', "Failed login attempt for email: $email from IP $ip");
             }
         } else {
             $errors[] = "Invalid email or password.";
