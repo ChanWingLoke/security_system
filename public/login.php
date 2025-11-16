@@ -149,7 +149,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($stmt->fetch()) {
             // 👉 Insecure plaintext check (baseline)
-            if ($password === $stored_password) {
+            if ($password === $stored_hash) {
                 $stmt->close(); // Close before setting session
                 
                 // Completely clear any existing session data
