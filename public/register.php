@@ -63,9 +63,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = "Password and confirmation do not match.";
     }
 
-    // Password policy checks
-    validate_password_strength($password);
-
     // Privacy policy agreement
     if (!$privacy_accepted) {
         $errors[] = "You must agree to the Data Privacy & Security Policy to create an account.";
