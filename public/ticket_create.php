@@ -25,17 +25,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (empty($errors)) {
-        // ⚠️ Intentionally INSECURE SQL (no prepared statements, no escaping)
         $sql = "
             INSERT INTO tickets (user_id, title, category, description, status)
-            VALUES ($user_id, '$title', '$category', '$description', 'Open')
+            VALUES (?, ?, ?, ?, 'Open')
         ";
 
-        if ($conn->query($sql) === TRUE) {
-            redirect('/security_system/public/dashboard.php');
+        $stmt = $conn->prepare($sql);
+
+        if ($stmt === false) {
+          $errors[] = "Database error: " . $conn->error;
         } else {
+          $stmt->bind_param('isss', $user_id, $title, $category, $description);
+
+          if ($stmt-> execute()) {
+            redirect('/security_system/public/dashboard.php');
+          } else {
             $errors[] = "Error creating ticket: " . $conn->error;
+          }
         }
+
+        $stmt->close();
     }
 }
 
