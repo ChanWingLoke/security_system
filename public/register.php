@@ -12,8 +12,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email    = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
     $confirm  = $_POST['confirm_password'] ?? '';
+    $privacy_accepted = isset($_POST['privacy_policy']) ? 1 : 0;
 
-    // Basic validation (you can strengthen later)
+    // --- Basic validation ---
+
     if ($name === '') {
         $errors[] = "Name is required.";
     }
@@ -22,87 +24,92 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = "Valid email is required.";
     }
 
+    // Password required
     if ($password === '') {
         $errors[] = "Password is required.";
     }
 
+    // Password confirmation match
     if ($password !== $confirm) {
         $errors[] = "Password and confirmation do not match.";
     }
 
     // Password policy checks
     if ($password !== '') {
-        // Minimum length (you can pick 8 or 10)
         if (strlen($password) < 10) {
             $errors[] = "Password must be at least 10 characters long.";
         }
-
-        // At least one uppercase
         if (!preg_match('/[A-Z]/', $password)) {
             $errors[] = "Password must contain at least one uppercase letter (A-Z).";
         }
-
-        // At least one lowercase
         if (!preg_match('/[a-z]/', $password)) {
             $errors[] = "Password must contain at least one lowercase letter (a-z).";
         }
-
-        // At least one digit
         if (!preg_match('/[0-9]/', $password)) {
             $errors[] = "Password must contain at least one digit (0-9).";
         }
-
-        // At least one special character
         if (!preg_match('/[\W_]/', $password)) {
             $errors[] = "Password must contain at least one special character (e.g. !@#\$%^&*).";
         }
     }
 
+    // Privacy policy agreement
+    if (!$privacy_accepted) {
+        $errors[] = "You must agree to the Data Privacy & Security Policy to create an account.";
+    }
+
     // Check duplicate email
     if (empty($errors)) {
         $stmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
-        $stmt->bind_param("s", $email);
-        $stmt->execute();
-        $stmt->store_result();
-        if ($stmt->num_rows > 0) {
-            $errors[] = "Email is already registered.";
+        if ($stmt === false) {
+            $errors[] = "Database error (prepare failed on email check).";
+        } else {
+            $stmt->bind_param("s", $email);
+            $stmt->execute();
+            $stmt->store_result();
+            if ($stmt->num_rows > 0) {
+                $errors[] = "Email is already registered.";
+            }
+            $stmt->close();
         }
-        $stmt->close();
     }
 
+    // Insert user if no errors
     if (empty($errors)) {
-        $role = 'user'; // default role
-
-        // ✅ HASH THE PASSWORD HERE
+        $role = 'user';
+        
         $password_hash = password_hash($password, PASSWORD_DEFAULT);
 
+        $privacy_accepted = $privacy_accepted ? 1 : 0;
+
         $stmt = $conn->prepare("
-            INSERT INTO users (name, email, password, role)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO users (name, email, password, role, privacy_accepted, privacy_accepted_at)
+            VALUES (?, ?, ?, ?, ?, NOW())
         ");
-        $stmt->bind_param("ssss", $name, $email, $password_hash, $role);
-        $stmt->execute();
 
-        if ($stmt->error) {
-            $errors[] = "Registration failed: " . $stmt->error;
+        if ($stmt === false) {
+            // If you still hit errors, this message will show instead of fatal crash
+            $errors[] = "Database error (prepare failed on insert): " . $conn->error;
         } else {
-            $new_id = $stmt->insert_id;
+            $stmt->bind_param("ssssi", $name, $email, $password_hash, $role, $privacy_accepted);
+            $stmt->execute();
 
-            // Log registration if logger exists
-            if (function_exists('log_event')) {
-                log_event($new_id, 'USER_REGISTERED', "Registered with email: $email");
+            if ($stmt->error) {
+                $errors[] = "Registration failed: " . $stmt->error;
+            } else {
+                $new_id = $stmt->insert_id;
+
+                // Auto-login
+                $_SESSION['user_id']   = $new_id;
+                $_SESSION['user_name'] = $name;
+                $_SESSION['user_role'] = $role;
+
+                $stmt->close();
+                redirect('/security_system/public/dashboard.php');
             }
 
-            // Auto-login
-            $_SESSION['user_id']   = $new_id;
-            $_SESSION['user_name'] = $name;
-            $_SESSION['user_role'] = $role;
-
             $stmt->close();
-            redirect('/security_system/public/dashboard.php');
         }
-
-        $stmt->close();
     }
 }
 
@@ -166,6 +173,27 @@ render_header("Register - Security System");
               class="form-control"
               required
             >
+          </div>
+          <div class="mb-3 form-check">
+            <input
+              type="checkbox"
+              class="form-check-input"
+              id="privacy_policy"
+              name="privacy_policy"
+              value="1"
+              <?= !empty($_POST['privacy_policy']) ? 'checked' : '' ?>
+            >
+            <label class="form-check-label" for="privacy_policy">
+              I have read and agree to the
+              <a href="/security_system/public/security_tips.php?popup=1"
+                onclick="window.open(
+                    '/security_system/public/security_tips.php?popup=1',
+                    'PrivacyPolicy',
+                    'width=800,height=600,top=100,left=200'
+                ); return false;">
+                Data Privacy &amp; Security Policy
+              </a>
+            </label>
           </div>
           <button type="submit" class="btn btn-primary w-100">Register</button>
         </form>
