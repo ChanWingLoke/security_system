@@ -378,7 +378,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Check requirements
-    const hasLength = password.length >= 8;
+    const hasLength = password.length >= 10;
     const hasUppercase = /[A-Z]/.test(password);
     const hasLowercase = /[a-z]/.test(password);
     const hasNumber = /[0-9]/.test(password);
