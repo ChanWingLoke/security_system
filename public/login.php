@@ -57,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $errors[] = "Invalid email or password.";
                 require_once __DIR__ . '/../includes/auth.php';
-                log_event($id, 'LOGIN_FAILED', "Wrong password for $email");
+                log_event($id, 'LOGIN_FAILED', "Failed login attempt for email: $email");
             }
         } else {
             $errors[] = "Invalid email or password.";
