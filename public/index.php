@@ -8,11 +8,6 @@ render_header("Home - Security System");
     <div class="app-card-soft p-5 mb-4 text-center">
       <p class="hero-kicker mb-2">Security System Baseline</p>
       <h1 class="hero-title">Ticket Service System</h1>
-      <p class="hero-subtitle mb-4">
-        This is the <strong>insecure baseline version</strong> of your project
-        (no password hashing, weak validation, basic logging).
-        You will harden and document all security improvements later.
-      </p>
 
       <div class="d-flex justify-content-center gap-3">
         <a class="btn btn-primary btn-lg btn-pill px-4" href="login.php">

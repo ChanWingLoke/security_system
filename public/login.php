@@ -135,24 +135,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
         if (empty($errors)) {
-            $stmt = $conn->prepare("
-                SELECT id, name, password, role
-                FROM users
-                WHERE email = ?
-            ");
-            $stmt->bind_param("s", $email);
-            $stmt->execute();
-            $stmt->bind_result($id, $name, $stored_password, $role);
-            
-            if ($stmt->fetch()) {
-                $stmt->close();
-                
-                // 👉 Insecure plaintext check (baseline)
-                if ($password === $stored_password) {
-                    // Successful login
-                    $_SESSION['user_id']   = $id;
-                    $_SESSION['user_name'] = $name;
-                    $_SESSION['user_role'] = $role;
+        $stmt = $conn->prepare("
+            SELECT id, name, password, role
+            FROM users
+            WHERE email = ?
+        ");
+        $stmt->bind_param("s", $email);
+        $stmt->execute();
+        $stmt->bind_result($id, $name, $stored_hash, $role);
+
+        if ($stmt->fetch()) {
+            // ✅ SECURE CHECK WITH HASH
+            if (password_verify($password, $stored_hash)) {
+                $_SESSION['user_id']   = $id;
+                $_SESSION['user_name'] = $name;
+                $_SESSION['user_role'] = $role;
                     
                     // Clear failed attempts
                     clear_login_attempts($conn, $email, $ip);
@@ -229,7 +226,7 @@ render_header("Login - Security System");
           Don't have an account?
           <a href="register.php">Register here</a>.
         </p>
-      </form>
+      </div>
     </div>
   </div>
 </div>

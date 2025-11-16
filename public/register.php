@@ -13,6 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password = $_POST['password'] ?? '';
     $confirm  = $_POST['confirm_password'] ?? '';
 
+    // Basic validation (you can strengthen later)
     if ($name === '') {
         $errors[] = "Name is required.";
     }
@@ -29,6 +30,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = "Password and confirmation do not match.";
     }
 
+    // Password policy checks
+    if ($password !== '') {
+        // Minimum length (you can pick 8 or 10)
+        if (strlen($password) < 10) {
+            $errors[] = "Password must be at least 10 characters long.";
+        }
+
+        // At least one uppercase
+        if (!preg_match('/[A-Z]/', $password)) {
+            $errors[] = "Password must contain at least one uppercase letter (A-Z).";
+        }
+
+        // At least one lowercase
+        if (!preg_match('/[a-z]/', $password)) {
+            $errors[] = "Password must contain at least one lowercase letter (a-z).";
+        }
+
+        // At least one digit
+        if (!preg_match('/[0-9]/', $password)) {
+            $errors[] = "Password must contain at least one digit (0-9).";
+        }
+
+        // At least one special character
+        if (!preg_match('/[\W_]/', $password)) {
+            $errors[] = "Password must contain at least one special character (e.g. !@#\$%^&*).";
+        }
+    }
+
     // Check duplicate email
     if (empty($errors)) {
         $stmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
@@ -42,14 +71,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (empty($errors)) {
-        $role = 'user'; // default
+        $role = 'user'; // default role
 
-        // 👉 Intentionally storing plaintext password for baseline
+        // ✅ HASH THE PASSWORD HERE
+        $password_hash = password_hash($password, PASSWORD_DEFAULT);
+
         $stmt = $conn->prepare("
             INSERT INTO users (name, email, password, role)
             VALUES (?, ?, ?, ?)
         ");
-        $stmt->bind_param("ssss", $name, $email, $password, $role);
+        $stmt->bind_param("ssss", $name, $email, $password_hash, $role);
         $stmt->execute();
 
         if ($stmt->error) {
@@ -57,8 +88,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $new_id = $stmt->insert_id;
 
-            log_event($new_id, 'USER_REGISTERED', "Registered with email: $email");
+            // Log registration if logger exists
+            if (function_exists('log_event')) {
+                log_event($new_id, 'USER_REGISTERED', "Registered with email: $email");
+            }
 
+            // Auto-login
             $_SESSION['user_id']   = $new_id;
             $_SESSION['user_name'] = $name;
             $_SESSION['user_role'] = $role;
@@ -66,6 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->close();
             redirect('/security_system/public/dashboard.php');
         }
+
         $stmt->close();
     }
 }
@@ -74,75 +110,71 @@ render_header("Register - Security System");
 ?>
 
 <div class="row justify-content-center">
-  <div class="col-md-6 col-lg-5">
-    <div class="app-card p-4">
-      <h2 class="app-section-title mb-3 text-center">Create an Account</h2>
-      <p class="text-muted text-center mb-4">
-        Sign up to submit and track support tickets.
-      </p>
+  <div class="col-md-6">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h2 class="mb-4 text-center">Register</h2>
 
-      <?php if (!empty($errors)): ?>
-        <div class="alert alert-danger">
-          <ul class="mb-0">
-            <?php foreach ($errors as $e): ?>
-              <li><?= htmlspecialchars($e) ?></li>
-            <?php endforeach; ?>
-          </ul>
-        </div>
-      <?php endif; ?>
+        <?php if (!empty($errors)): ?>
+          <div class="alert alert-danger">
+            <ul class="mb-0">
+              <?php foreach ($errors as $e): ?>
+                <li><?= htmlspecialchars($e) ?></li>
+              <?php endforeach; ?>
+            </ul>
+          </div>
+        <?php endif; ?>
 
-      <form method="post" novalidate>
-        <div class="mb-3">
-          <label class="form-label fw-semibold">Name</label>
-          <input
-            type="text"
-            name="name"
-            class="form-control"
-            value="<?= htmlspecialchars($name) ?>"
-            required
-          >
-        </div>
+        <form method="post" novalidate>
+          <div class="mb-3">
+            <label class="form-label">Name</label>
+            <input
+              type="text"
+              name="name"
+              class="form-control"
+              value="<?= htmlspecialchars($name) ?>"
+              required
+            >
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Email</label>
+            <input
+              type="email"
+              name="email"
+              class="form-control"
+              value="<?= htmlspecialchars($email) ?>"
+              required
+            >
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Password</label>
+            <input
+              type="password"
+              name="password"
+              class="form-control"
+              required
+            >
+            <div class="form-text">
+              Must be at least 10 characters, with uppercase, lowercase, number and special character.
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Confirm Password</label>
+            <input
+              type="password"
+              name="confirm_password"
+              class="form-control"
+              required
+            >
+          </div>
+          <button type="submit" class="btn btn-primary w-100">Register</button>
+        </form>
 
-        <div class="mb-3">
-          <label class="form-label fw-semibold">Email</label>
-          <input
-            type="email"
-            name="email"
-            class="form-control"
-            value="<?= htmlspecialchars($email) ?>"
-            required
-          >
-        </div>
-
-        <div class="mb-3">
-          <label class="form-label fw-semibold">Password</label>
-          <input
-            type="password"
-            name="password"
-            class="form-control"
-            required
-          >
-        </div>
-
-        <div class="mb-3">
-          <label class="form-label fw-semibold">Confirm Password</label>
-          <input
-            type="password"
-            name="confirm_password"
-            class="form-control"
-            required
-          >
-        </div>
-
-        <button type="submit" class="btn btn-primary w-100 btn-pill mb-3">
-          Create Account
-        </button>
-
-        <p class="text-center text-muted mb-0">
+        <p class="mt-3 text-center">
           Already have an account?
           <a href="login.php">Login here</a>.
         </p>
-      </form>
+      </div>
     </div>
   </div>
 </div>
