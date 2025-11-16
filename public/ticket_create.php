@@ -26,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (empty($errors)) {
         $sql = "
-            INSERT INTO tickets (user-id, title, category, description, status)
+            INSERT INTO tickets (user_id, title, category, description, status)
             VALUES (?, ?, ?, ?, 'Open')
         ";
 
