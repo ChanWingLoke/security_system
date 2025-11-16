@@ -13,8 +13,8 @@ $email = '';
 function validate_password_strength($password) {
     $errors = [];
     
-    if (strlen($password) < 8) {
-        $errors[] = "Password must be at least 8 characters long";
+    if (strlen($password) < 10) {
+        $errors[] = "Password must be at least 10 characters long";
     }
     if (!preg_match('/[A-Z]/', $password)) {
         $errors[] = "Password must contain at least one uppercase letter";
@@ -207,7 +207,7 @@ render_header("Register - Security System");
             <small class="text-muted d-block mb-1">Password must contain:</small>
             <ul class="password-requirements">
               <li id="req-length" class="requirement-unchecked">
-                <span class="requirement-icon">✗</span> At least 8 characters
+                <span class="requirement-icon">✗</span> At least 10 characters
               </li>
               <li id="req-uppercase" class="requirement-unchecked">
                 <span class="requirement-icon">✗</span> One uppercase letter
