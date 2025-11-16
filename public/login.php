@@ -1,7 +1,10 @@
 <?php
 require_once __DIR__ . '/../includes/db.php';
-require_once __DIR__ . '/../includes/auth.php';
-require_once __DIR__ . '/../includes/layout.php';
+
+// Start session manually before auth.php
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 $errors = [];
 $email = '';
@@ -70,11 +73,15 @@ function is_login_locked($conn, $email, $ip) {
 // Retrieved 2025-11-16, License - CC BY-SA 4.0
 
 function debug_to_console($data) {
-    $output = $data;
-    if (is_array($output))
-        $output = implode(',', $output);
+    // Use json_encode to handle strings, numbers, arrays, and escaping safely
+    $output = json_encode($data);
 
-    echo "<script>console.log('Debug Objects: " . $output . "' );</script>";
+    // If you prefer the 'Debug Objects' prefix, use concatenation outside of json_encode
+    // Note: We are no longer imploding arrays manually, as json_encode handles that.
+    echo "<script>console.log('Debug Objects:', " . $output . ");</script>";
+    
+    // An alternative simpler implementation is:
+    // echo "<script>console.log(" . json_encode($data) . ");</script>";
 }
 
 /**
@@ -85,6 +92,11 @@ function record_failed_attempt($conn, $email, $ip) {
         INSERT INTO login_attempts (email, ip_address, attempted_at)
         VALUES (?, ?, NOW())
     ");
+    if ($stmt === false) {
+        // Log the actual MySQL error to your server logs
+        debug_to_console($conn->error);
+    }
+
     $stmt->bind_param("ss", $email, $ip);
     $stmt->execute();
     $stmt->close();
@@ -124,6 +136,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($lock_status['locked']) {
         $minutes = ceil($lock_status['remaining_time'] / 60);
         $errors[] = "Too many failed login attempts. Please try again in {$minutes} minute(s).";
+        require_once __DIR__ . '/../includes/auth.php';
         log_event(null, 'LOGIN_BLOCKED', "Login blocked for $email from IP $ip due to rate limiting");
     } else {
         // Validate input
@@ -145,21 +158,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->bind_result($id, $name, $stored_hash, $role);
 
         if ($stmt->fetch()) {
-            // ✅ SECURE CHECK WITH HASH
+            // 👉 Insecure plaintext check (baseline)
             if (password_verify($password, $stored_hash)) {
+                $stmt->close(); // Close before setting session
+                
+                // Completely clear any existing session data
+                $_SESSION = array();
+                
+                // Set NEW session variables
                 $_SESSION['user_id']   = $id;
                 $_SESSION['user_name'] = $name;
                 $_SESSION['user_role'] = $role;
-                    
-                    // Clear failed attempts
-                    clear_login_attempts($conn, $email, $ip);
-                    
-                    log_event($id, 'LOGIN_SUCCESS', "User $email logged in successfully from IP $ip");
-                    redirect('/security_system/public/dashboard.php');
+                $_SESSION['last_activity'] = time();
+                $_SESSION['just_logged_in'] = true;
+                
+                // Clear failed attempts
+                clear_login_attempts($conn, $email, $ip);
+
+                // Load auth functions for logging only
+                require_once __DIR__ . '/../includes/auth.php';
+                log_event($id, 'LOGIN_SUCCESS', "User $email logged in successfully from IP $ip");
+
+                // Redirect
+                header("Location: /security_system/public/dashboard.php");
+                exit();
                 } else {
+                    $stmt->close();
                     // Failed login
                     record_failed_attempt($conn, $email, $ip);
                     $errors[] = "Invalid email or password.";
+                    require_once __DIR__ . '/../includes/auth.php';
                     log_event($id, 'LOGIN_FAILED', "Wrong password for $email from IP $ip");
                 }
             } else {
@@ -168,8 +196,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Unknown email
                 record_failed_attempt($conn, $email, $ip);
                 $errors[] = "Invalid email or password.";
-                log_event(null, 'LOGIN_FAILED', "Login attempt for unknown email: $email from IP $ip");
+                require_once __DIR__ . '/../includes/auth.php';
+                log_event($id, 'LOGIN_FAILED', "Failed login attempt for email: $email");
             }
+        } else {
+            $errors[] = "Invalid email or password.";
+            require_once __DIR__ . '/../includes/auth.php';
+            log_event(null, 'LOGIN_FAILED', "Login attempt for unknown email: $email from IP $ip");
         }
     }
     
@@ -177,6 +210,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (rand(1, 100) === 1) {
         cleanup_old_attempts($conn);
     }
+}
+
+// NOW load auth.php after POST handling
+require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/layout.php';
+
+// Check for logout messages
+if (isset($_GET['timeout']) && $_GET['timeout'] == '1') {
+    $errors[] = "Your session has expired due to inactivity. Please login again.";
+}
+
+if (isset($_GET['refresh']) && $_GET['refresh'] == '1') {
+    $errors[] = "Please login again to continue.";
+}
+
+// If already logged in, redirect
+if (!empty($_SESSION['user_id']) && empty($errors)) {
+    redirect('/security_system/public/dashboard.php');
 }
 
 render_header("Login - Security System");
