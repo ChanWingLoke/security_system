@@ -35,8 +35,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($stmt === false) {
           $errors[] = "Database error: " . $conn->error;
         } else {
-          $status = 'Open';
-
           $stmt->bind_param('isss', $user_id, $title, $category, $description);
 
           if ($stmt-> execute()) {
