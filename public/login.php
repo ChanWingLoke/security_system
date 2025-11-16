@@ -73,11 +73,15 @@ function is_login_locked($conn, $email, $ip) {
 // Retrieved 2025-11-16, License - CC BY-SA 4.0
 
 function debug_to_console($data) {
-    $output = $data;
-    if (is_array($output))
-        $output = implode(',', $output);
+    // Use json_encode to handle strings, numbers, arrays, and escaping safely
+    $output = json_encode($data);
 
-    echo "<script>console.log('Debug Objects: " . $output . "' );</script>";
+    // If you prefer the 'Debug Objects' prefix, use concatenation outside of json_encode
+    // Note: We are no longer imploding arrays manually, as json_encode handles that.
+    echo "<script>console.log('Debug Objects:', " . $output . ");</script>";
+    
+    // An alternative simpler implementation is:
+    // echo "<script>console.log(" . json_encode($data) . ");</script>";
 }
 
 /**
@@ -88,6 +92,11 @@ function record_failed_attempt($conn, $email, $ip) {
         INSERT INTO login_attempts (email, ip_address, attempted_at)
         VALUES (?, ?, NOW())
     ");
+    if ($stmt === false) {
+        // Log the actual MySQL error to your server logs
+        debug_to_console($conn->error);
+    }
+
     $stmt->bind_param("ss", $email, $ip);
     $stmt->execute();
     $stmt->close();
@@ -127,6 +136,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($lock_status['locked']) {
         $minutes = ceil($lock_status['remaining_time'] / 60);
         $errors[] = "Too many failed login attempts. Please try again in {$minutes} minute(s).";
+        require_once __DIR__ . '/../includes/auth.php';
         log_event(null, 'LOGIN_BLOCKED', "Login blocked for $email from IP $ip due to rate limiting");
     } else {
         // Validate input
@@ -164,20 +174,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 // Clear failed attempts
                 clear_login_attempts($conn, $email, $ip);
-                    
-                log_event($id, 'LOGIN_SUCCESS', "User $email logged in successfully from IP $ip");
 
                 // Load auth functions for logging only
                 require_once __DIR__ . '/../includes/auth.php';
-                log_event($id, 'LOGIN_SUCCESS', "User $email logged in successfully");
+                log_event($id, 'LOGIN_SUCCESS', "User $email logged in successfully from IP $ip");
 
                 // Redirect
                 header("Location: /security_system/public/dashboard.php");
                 exit();
                 } else {
+                    $stmt->close();
                     // Failed login
                     record_failed_attempt($conn, $email, $ip);
                     $errors[] = "Invalid email or password.";
+                    require_once __DIR__ . '/../includes/auth.php';
                     log_event($id, 'LOGIN_FAILED', "Wrong password for $email from IP $ip");
                 }
             } else {
