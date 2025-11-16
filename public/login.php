@@ -1,7 +1,10 @@
 <?php
 require_once __DIR__ . '/../includes/db.php';
-require_once __DIR__ . '/../includes/auth.php';
-require_once __DIR__ . '/../includes/layout.php';
+
+// Start session manually before auth.php
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 $errors = [];
 $email = '';
@@ -145,17 +148,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->bind_result($id, $name, $stored_hash, $role);
 
         if ($stmt->fetch()) {
-            // ✅ SECURE CHECK WITH HASH
-            if (password_verify($password, $stored_hash)) {
+            // 👉 Insecure plaintext check (baseline)
+            if ($password === $stored_password) {
+                $stmt->close(); // Close before setting session
+                
+                // Completely clear any existing session data
+                $_SESSION = array();
+                
+                // Set NEW session variables
                 $_SESSION['user_id']   = $id;
                 $_SESSION['user_name'] = $name;
                 $_SESSION['user_role'] = $role;
+                $_SESSION['last_activity'] = time();
+                $_SESSION['just_logged_in'] = true;
+                
+                // Clear failed attempts
+                clear_login_attempts($conn, $email, $ip);
                     
-                    // Clear failed attempts
-                    clear_login_attempts($conn, $email, $ip);
-                    
-                    log_event($id, 'LOGIN_SUCCESS', "User $email logged in successfully from IP $ip");
-                    redirect('/security_system/public/dashboard.php');
+                log_event($id, 'LOGIN_SUCCESS', "User $email logged in successfully from IP $ip");
+
+                // Load auth functions for logging only
+                require_once __DIR__ . '/../includes/auth.php';
+                log_event($id, 'LOGIN_SUCCESS', "User $email logged in successfully");
+
+                // Redirect
+                header("Location: /security_system/public/dashboard.php");
+                exit();
                 } else {
                     // Failed login
                     record_failed_attempt($conn, $email, $ip);
@@ -168,8 +186,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Unknown email
                 record_failed_attempt($conn, $email, $ip);
                 $errors[] = "Invalid email or password.";
-                log_event(null, 'LOGIN_FAILED', "Login attempt for unknown email: $email from IP $ip");
+                require_once __DIR__ . '/../includes/auth.php';
+                log_event($id, 'LOGIN_FAILED', "Failed login attempt for email: $email");
             }
+        } else {
+            $errors[] = "Invalid email or password.";
+            require_once __DIR__ . '/../includes/auth.php';
+            log_event(null, 'LOGIN_FAILED', "Login attempt for unknown email: $email from IP $ip");
         }
     }
     
@@ -177,6 +200,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (rand(1, 100) === 1) {
         cleanup_old_attempts($conn);
     }
+}
+
+// NOW load auth.php after POST handling
+require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/layout.php';
+
+// Check for logout messages
+if (isset($_GET['timeout']) && $_GET['timeout'] == '1') {
+    $errors[] = "Your session has expired due to inactivity. Please login again.";
+}
+
+if (isset($_GET['refresh']) && $_GET['refresh'] == '1') {
+    $errors[] = "Please login again to continue.";
+}
+
+// If already logged in, redirect
+if (!empty($_SESSION['user_id']) && empty($errors)) {
+    redirect('/security_system/public/dashboard.php');
 }
 
 render_header("Login - Security System");
