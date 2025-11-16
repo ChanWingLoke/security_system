@@ -158,7 +158,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->bind_result($id, $name, $stored_hash, $role);
 
         if ($stmt->fetch()) {
-            // 👉 Insecure plaintext check (baseline)
             if (password_verify($password, $stored_hash)) {
                 $stmt->close(); // Close before setting session
                 
