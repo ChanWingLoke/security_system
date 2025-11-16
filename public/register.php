@@ -64,23 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // Password policy checks
-    if ($password !== '') {
-        if (strlen($password) < 10) {
-            $errors[] = "Password must be at least 10 characters long.";
-        }
-        if (!preg_match('/[A-Z]/', $password)) {
-            $errors[] = "Password must contain at least one uppercase letter (A-Z).";
-        }
-        if (!preg_match('/[a-z]/', $password)) {
-            $errors[] = "Password must contain at least one lowercase letter (a-z).";
-        }
-        if (!preg_match('/[0-9]/', $password)) {
-            $errors[] = "Password must contain at least one digit (0-9).";
-        }
-        if (!preg_match('/[\W_]/', $password)) {
-            $errors[] = "Password must contain at least one special character (e.g. !@#\$%^&*).";
-        }
-    }
+    validate_password_strength($password);
 
     // Privacy policy agreement
     if (!$privacy_accepted) {
