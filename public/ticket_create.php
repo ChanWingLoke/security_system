@@ -28,34 +28,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // ✅ SECURE: Use prepared statements within a try-catch block for graceful failure.
         try {
             $sql = "
-                INSERT INTO tickets (user_id, title, category, description, status)
-                VALUES (?, ?, ?, ?, ?)
-            ";
+            INSERT INTO tickets (user_id, title, category, description, status)
+            VALUES (?, ?, ?, ?, 'Open')
+          ";
 
-            $stmt = $conn->prepare($sql);
+          $stmt = $conn->prepare($sql);
 
-            if ($stmt === false) {
-                 // Handle prepare failure (often due to bad connection or invalid column name)
-                 throw new Exception("SQL prepare failed: " . $conn->error);
-            }
-            
-            $status = 'Open'; 
-            // Bind parameters: 'issss' -> i=integer, s=string.
-            $stmt->bind_param("issss", $user_id, $title, $category, $description, $status);
-            
-            if ($stmt->execute()) {
-                // Success
-                $new_id = $stmt->insert_id;
-                // Assuming log_event is available
-                // log_event($user_id, 'TICKET_CREATED', "New ticket ID: $new_id, Title: $title"); 
+          if ($stmt === false) {
+            $errors[] = "Database error: " . $conn->error;
+          } else {
+            $stmt->bind_param('isss', $user_id, $title, $category, $description);
 
-                $stmt->close();
-                redirect('/security_system/public/dashboard.php');
+            if ($stmt-> execute()) {
+              redirect('/security_system/public/dashboard.php');
             } else {
-                // The execute failed for some other reason (e.g., integrity constraint)
-                throw new Exception("SQL execution failed: " . $stmt->error);
+              $errors[] = "Error creating ticket: " . $conn->error;
             }
+          }
 
+          $stmt->close();
+          
         } catch (mysqli_sql_exception $e) {
             // Catches the specific database exception (like the syntax error you saw)
             // 🛑 SECURITY FIX: Log the detailed error internally and show a generic message.
@@ -66,7 +58,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Catches general errors (like the custom exceptions thrown above)
             error_log("General Error during ticket creation for user $user_id: " . $e->getMessage());
             $errors[] = "An unexpected server error occurred. Please try again later.";
-        }
     }
 }
 

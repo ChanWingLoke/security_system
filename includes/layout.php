@@ -168,7 +168,6 @@ function render_header($title = "Security System") {
                 <li class="nav-item">
                   <a class="nav-link" href="/security_system/public/dashboard.php">Dashboard</a>
                 </li>
-
                 <?php if (!empty($_SESSION['user_role']) && $_SESSION['user_role'] === 'admin'): ?>
                   <li class="nav-item">
                     <a class="nav-link" href="/security_system/admin/tickets.php">Admin Tickets</a>
@@ -180,14 +179,14 @@ function render_header($title = "Security System") {
 
                 <li class="nav-item">
                   <a class="nav-link" href="/security_system/public/logout.php">Logout</a>
-                </li>
+                </li>               
               <?php else: ?>
                 <li class="nav-item">
                   <a class="nav-link" href="/security_system/public/login.php">Login</a>
                 </li>
                 <li class="nav-item">
                   <a class="nav-link" href="/security_system/public/register.php">Register</a>
-                </li>
+                </li>               
               <?php endif; ?>
             </ul>
           </div>
