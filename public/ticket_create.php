@@ -25,26 +25,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (empty($errors)) {
-        $sql = "
+        // ✅ SECURE: Use prepared statements within a try-catch block for graceful failure.
+        try {
+            $sql = "
             INSERT INTO tickets (user_id, title, category, description, status)
             VALUES (?, ?, ?, ?, 'Open')
-        ";
+          ";
 
-        $stmt = $conn->prepare($sql);
+          $stmt = $conn->prepare($sql);
 
-        if ($stmt === false) {
-          $errors[] = "Database error: " . $conn->error;
-        } else {
-          $stmt->bind_param('isss', $user_id, $title, $category, $description);
-
-          if ($stmt-> execute()) {
-            redirect('/security_system/public/dashboard.php');
+          if ($stmt === false) {
+            $errors[] = "Database error: " . $conn->error;
           } else {
-            $errors[] = "Error creating ticket: " . $conn->error;
-          }
-        }
+            $stmt->bind_param('isss', $user_id, $title, $category, $description);
 
-        $stmt->close();
+            if ($stmt-> execute()) {
+              redirect('/security_system/public/dashboard.php');
+            } else {
+              $errors[] = "Error creating ticket: " . $conn->error;
+            }
+          }
+
+          $stmt->close();
+          
+        } catch (mysqli_sql_exception $e) {
+            // Catches the specific database exception (like the syntax error you saw)
+            // 🛑 SECURITY FIX: Log the detailed error internally and show a generic message.
+            error_log("Database Exception for user $user_id: " . $e->getMessage());
+            $errors[] = "We encountered a problem submitting your ticket. Please check your inputs and try again.";
+
+        } catch (Exception $e) {
+            // Catches general errors (like the custom exceptions thrown above)
+            error_log("General Error during ticket creation for user $user_id: " . $e->getMessage());
+            $errors[] = "An unexpected server error occurred. Please try again later.";
     }
 }
 
